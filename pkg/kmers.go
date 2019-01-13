@@ -3,8 +3,6 @@ package rbns
 import (
 	"fmt"
 	"math"
-
-	//"math"
 )
 
 type KmerCountMap map[string]int
@@ -17,7 +15,6 @@ func AllKmers(k int) KmersSlice {
 	if k < 1 {
 		panic("k for AllKmers must be >= 1")
 	}
-	//nKmers := int(math.Pow(4, float64(k)))
 
 	currKmers := KmersSlice{""}
 	for i := 0; i < k; i++ {
@@ -120,6 +117,9 @@ func checkValidKmerFreqMap(m KmerFreqMap, k int) error {
 		if len(kmer) != k {
 			return fmt.Errorf("KmerFreqMap contains non-length %d kmer: %s", k, kmer)
 		}
+		if !isACGTonlyKmer(kmer) {
+			return fmt.Errorf("non-ACGT kmer: %s", kmer)
+		}
 		if freq < 0 {
 			return fmt.Errorf("freq for %s is <0: %f", kmer, freq)
 		}
@@ -145,17 +145,21 @@ func KmerEnrichments(pd, input KmerFreqMap) (KmerRMap, error) {
 		return nil, err
 	}
 
-	var kmerRMap KmerRMap
+	kmerRMap := make(KmerRMap)
 
-	// Go through all kmers.
+	// Go through all kmers, determining if each is present in both
+	// maps, and if so, calculating R.
 	for _, kmer := range AllKmers(k) {
-		var pdFreq float64
-		var inputFreq float64
-		pdFreq, _ = pd[kmer]
-		inputFreq, _ = input[kmer]
-		if inputFreq == 0. {
-			kmerRMap[kmer] = 1.
+
+		pdFreq, pdOK := pd[kmer]
+		inputFreq, inputOK := input[kmer]
+
+		// If the kmer's absent in either PD or Input,
+		// or if it has 0 frequency in the input, assign it R = 1
+		if (!pdOK || !inputOK) || inputFreq == 0. {
+			kmerRMap[kmer] = 1
 		} else {
+			// Expected R definition for normal cases
 			kmerRMap[kmer] = pdFreq / inputFreq
 		}
 	}

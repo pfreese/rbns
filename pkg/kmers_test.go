@@ -2,7 +2,6 @@ package rbns
 
 import (
 	"errors"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -193,7 +192,7 @@ func TestCheckValidKmerFreqMap(t *testing.T) {
 	tables := []struct {
 		freqMap KmerFreqMap
 		k int // size of kmers in freqMap
-		error error  // expected result
+		error error  // expected error
 	}{
 		// Valid
 		{KmerFreqMap{"A": 0.5, "C": 0.5},
@@ -215,10 +214,14 @@ func TestCheckValidKmerFreqMap(t *testing.T) {
 			1,
 			errors.New("total freq for all kmers is not 1"),
 		},
+		// non-ACGT kmer
+		{KmerFreqMap{"A": 0.5, "N": 0.5},
+			1,
+			errors.New("non-ACGT kmer: N"),
+		},
 	}
 
 	for _, table := range tables {
-		fmt.Println(table.freqMap)
 		err := checkValidKmerFreqMap(table.freqMap, table.k)
 		// If the expected error is not nil,
 		if table.error != nil {
@@ -251,6 +254,61 @@ func TestGetK(t *testing.T) {
 		if actual != table.k {
 			t.Errorf("k from %v was incorrect, got: %v, want: %v.",
 				table.kmersMap, actual, table.k)
+		}
+	}
+}
+
+func TestKmerEnrichments(t *testing.T) {
+	tables := []struct {
+		pdMap KmerFreqMap
+		inputMap KmerFreqMap
+		rMap KmerRMap // expected enrichments
+		error error  // expected error
+	}{
+		// "A" and "C" have both positive frequencies
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			KmerFreqMap{"A": 0.25, "C": 0.75},
+			KmerRMap{"A": 0.5/0.25, "C": 0.5/0.75, "G": 1, "T": 1},
+			nil,
+		},
+		// Only "A" has frequency in both libraries
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			KmerFreqMap{"A": 0.25, "G": 0.75},
+			KmerRMap{"A": 0.5/0.25, "C": 1, "G": 1, "T": 1},
+			nil,
+		},
+		// Test a couple of errors:
+		// If the PD freqs do not sum to 1
+		{KmerFreqMap{"A": 0.5, "C": 1.},
+			KmerFreqMap{"A": 0.25, "G": 0.75},
+			nil,
+			errors.New("total freq for all kmers is not 1"),
+		},
+		// If the Input library contains a non-ACGT kmer
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			KmerFreqMap{"A": 0.25, "N": 0.75},
+			nil,
+			errors.New("non-ACGT kmer"),
+		},
+		// If the Input library contains different length kmers
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			KmerFreqMap{"A": 0.25, "C": 0.75, "GT": 0.1},
+			nil,
+			errors.New("KmerFreqMap contains non-length"),
+		},
+	}
+
+	for _, table := range tables {
+		actual, err := KmerEnrichments(table.pdMap, table.inputMap)
+		// If the expected error is not nil,
+		if table.error != nil {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), table.error.Error())
+		} else {
+			if !reflect.DeepEqual(actual, table.rMap) {
+				t.Errorf("Enrichments from PD = %v; Input = %v incorrect, got: %v, want: %v.",
+					table.pdMap, table.inputMap, actual, table.rMap)
+			}
 		}
 	}
 }
