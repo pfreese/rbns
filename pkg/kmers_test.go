@@ -7,6 +7,31 @@ import (
 	"testing"
 )
 
+
+func TestAllKmers(t *testing.T) {
+	tables := []struct {
+		k int
+		kmers KmersSlice
+	}{
+		{1, KmersSlice{"A", "C", "G", "T"},},
+		{2, KmersSlice{
+				"AA", "AC", "AG", "AT",
+				"CA", "CC", "CG", "CT",
+				"GA", "GC", "GG", "GT",
+				"TA", "TC", "TG", "TT",
+			},
+		},
+	}
+
+	for _, table := range tables {
+		actual := AllKmers(table.k)
+		if !reflect.DeepEqual(actual, table.kmers) {
+			t.Errorf("%dmers was incorrect, got: %v, want: %v.",
+				table.k, actual, table.kmers)
+		}
+	}
+}
+
 func TestCountKmers(t *testing.T) {
 	tables := []struct {
 		s string

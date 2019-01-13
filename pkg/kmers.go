@@ -1,9 +1,34 @@
 package rbns
 
-import "fmt"
+import (
+	"fmt"
+	//"math"
+)
 
 type KmerCountMap map[string]int
 type KmerFreqMap map[string]float64
+type KmersSlice []string
+
+
+func AllKmers(k int) KmersSlice {
+	if k < 1 {
+		panic("k for AllKmers must be >= 1")
+	}
+	//nKmers := int(math.Pow(4, float64(k)))
+
+	currKmers := KmersSlice{""}
+	for i := 0; i < k; i++ {
+		var kPlus1mers KmersSlice
+		for _, nt := range []string{"A", "C", "G", "T"} {
+			for _, currKmer := range currKmers {
+				kPlus1mers = append(kPlus1mers, nt + currKmer)
+			}
+		}
+		currKmers = kPlus1mers
+	}
+
+	return currKmers
+}
 
 
 func CountKmers(s string, k int) KmerCountMap {
