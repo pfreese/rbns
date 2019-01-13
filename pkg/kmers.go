@@ -1,7 +1,13 @@
 package rbns
 
-func CountKmers(s string, k int) map[string]int {
-	kmerCounts := make(map[string]int)
+import "fmt"
+
+type KmerCountMap map[string]int
+type KmerFreqMap map[string]float64
+
+
+func CountKmers(s string, k int) KmerCountMap {
+	kmerCounts := make(KmerCountMap)
 	nKmers := len(s) - k + 1
 	// If the string is shorter than k, there are no kmers
 	if nKmers < 1 {
@@ -38,12 +44,33 @@ func isACGTonlyKmer(s string) bool {
 	return true
 }
 
-func FilterToACGTkmers(m map[string]int) map[string]int {
-	filtKmerCounts := make(map[string]int)
+func FilterToACGTkmers(m KmerCountMap) KmerCountMap {
+	filtKmerCounts := make(KmerCountMap)
 	for kmer, count := range m {
 		if isACGTonlyKmer(kmer) {
 			filtKmerCounts[kmer] = count
 		}
 	}
 	return filtKmerCounts
+}
+
+
+func CountsMapToFreqMap(m KmerCountMap) (KmerFreqMap, error) {
+	// First get the total number of counts in the map
+	var totalCounts int
+	for kmer, count := range m {
+		if !isACGTonlyKmer(kmer) {
+			return nil, fmt.Errorf("KmerCountMap contains non-ACGT kmer %s", kmer)
+		}
+		if count < 0 {
+			return nil, fmt.Errorf("KmerCountMap contains negative counts for %s", kmer)
+		}
+		totalCounts += count
+	}
+
+	kmerFreqMap := make(KmerFreqMap)
+	for kmer, count := range m {
+		kmerFreqMap[kmer] = float64(count) / float64(totalCounts)
+	}
+	return kmerFreqMap, nil
 }
