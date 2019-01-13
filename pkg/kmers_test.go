@@ -2,33 +2,56 @@ package rbns
 
 import (
 	"errors"
-	"gotest.tools/assert"
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
 
-
+// Test for panics based on: https://stackoverflow.com/questions/31595791/how-to-test-panics
 func TestAllKmers(t *testing.T) {
 	tables := []struct {
+		name string // name of the test
 		k int
-		kmers KmersSlice
+		kmers KmersSlice // expected returned kmers
+		wantPanic bool // whether the test should trigger a panic (i.e., k < 1)
 	}{
-		{1, KmersSlice{"A", "C", "G", "T"},},
-		{2, KmersSlice{
+		{"k=0",
+			0,
+			nil,
+			true,},
+		{"k=1",
+			1,
+			KmersSlice{"A", "C", "G", "T"},
+			false,
+		},
+		{"k=2",
+			2,
+			KmersSlice{
 				"AA", "AC", "AG", "AT",
 				"CA", "CC", "CG", "CT",
 				"GA", "GC", "GG", "GT",
 				"TA", "TC", "TG", "TT",
 			},
+			false,
 		},
 	}
 
-	for _, table := range tables {
-		actual := AllKmers(table.k)
-		if !reflect.DeepEqual(actual, table.kmers) {
-			t.Errorf("%dmers was incorrect, got: %v, want: %v.",
-				table.k, actual, table.kmers)
-		}
+	for _, tt := range tables {
+		// Test if there's a panic
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if (r != nil) != tt.wantPanic {
+					t.Errorf("AllKmers() recover = %v, wantPanic = %v", r, tt.wantPanic)
+				}
+			}()
+			// If no panic, test kmers are as expected
+			got := AllKmers(tt.k)
+			if !reflect.DeepEqual(got, tt.kmers) {
+				t.Errorf("AllKmers() = %v, want %v", got, tt.kmers)
+			}
+		})
 	}
 }
 
@@ -155,12 +178,79 @@ func TestCountsMapToFreqMap(t *testing.T) {
 		actual, err := CountsMapToFreqMap(table.inMap)
 		// If the expected error is not nil,
 		if table.error != nil {
-			assert.ErrorContains(t, err, table.error.Error())
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), table.error.Error())
 		} else {
 			if !reflect.DeepEqual(actual, table.freqMap) {
 				t.Errorf("Frequencies from %v was incorrect, got: %v, want: %v.",
 					table.inMap, actual, table.freqMap)
 			}
+		}
+	}
+}
+
+func TestCheckValidKmerFreqMap(t *testing.T) {
+	tables := []struct {
+		freqMap KmerFreqMap
+		k int // size of kmers in freqMap
+		error error  // expected result
+	}{
+		// Valid
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			1,
+			nil,
+		},
+		// Wrong length kmers
+		{KmerFreqMap{"A": 0.5, "C": 0.5},
+			2,
+			errors.New("KmerFreqMap contains non-length 2 kmer:"),
+		},
+		// Negative entry
+		{KmerFreqMap{"A": -0.2, "C": 0.5},
+			1,
+			errors.New("freq for A is <0"),
+		},
+		// Does not sum to 1
+		{KmerFreqMap{"A": 0.4999, "C": 0.5},
+			1,
+			errors.New("total freq for all kmers is not 1"),
+		},
+	}
+
+	for _, table := range tables {
+		fmt.Println(table.freqMap)
+		err := checkValidKmerFreqMap(table.freqMap, table.k)
+		// If the expected error is not nil,
+		if table.error != nil {
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), table.error.Error())
+		} else {
+			assert.NoError(t, err)
+		}
+	}
+}
+
+func TestGetK(t *testing.T) {
+	tables := []struct {
+		kmersMap KmerFreqMap
+		k int // expected result
+	}{
+		{KmerFreqMap{"AC": 0.25, "GG": 0.25, "CG": 0.25, "GA": 0.25},
+			2,
+		},
+		{KmerFreqMap{"GCCG": 0.1, "AAAA": 0.9},
+			4,
+		},
+		{KmerFreqMap{},
+			0,
+		},
+	}
+
+	for _, table := range tables {
+		actual := getk(table.kmersMap)
+		if actual != table.k {
+			t.Errorf("k from %v was incorrect, got: %v, want: %v.",
+				table.kmersMap, actual, table.k)
 		}
 	}
 }

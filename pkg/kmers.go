@@ -2,11 +2,14 @@ package rbns
 
 import (
 	"fmt"
+	"math"
+
 	//"math"
 )
 
 type KmerCountMap map[string]int
 type KmerFreqMap map[string]float64
+type KmerRMap map[string]float64
 type KmersSlice []string
 
 
@@ -98,4 +101,63 @@ func CountsMapToFreqMap(m KmerCountMap) (KmerFreqMap, error) {
 		kmerFreqMap[kmer] = float64(count) / float64(totalCounts)
 	}
 	return kmerFreqMap, nil
+}
+
+func getk(m KmerFreqMap) int {
+	for kmer, _ := range m {
+		return len(kmer)
+	}
+	return 0
+}
+
+// checkValidKmerFreqMap performs 2 checks:
+// 1. All key entries in m are of length k
+// 2. All value (frequency) entries in m are non-negative and
+//    together sum to 1.
+func checkValidKmerFreqMap(m KmerFreqMap, k int) error {
+	var totalFreq float64
+	for kmer, freq := range m {
+		if len(kmer) != k {
+			return fmt.Errorf("KmerFreqMap contains non-length %d kmer: %s", k, kmer)
+		}
+		if freq < 0 {
+			return fmt.Errorf("freq for %s is <0: %f", kmer, freq)
+		}
+		totalFreq += freq
+	}
+	// Make sure the frequencies sum to 1
+	if math.Abs(totalFreq - 1.) > 1e-6 {
+		return fmt.Errorf("total freq for all kmers is not 1 (=%f)", totalFreq)
+	}
+	return nil
+}
+
+func KmerEnrichments(pd, input KmerFreqMap) (KmerRMap, error) {
+	// Get the kmer size
+	k := getk(pd)
+
+	err := checkValidKmerFreqMap(pd, k)
+	if err != nil {
+		return nil, err
+	}
+	err = checkValidKmerFreqMap(input, k)
+	if err != nil {
+		return nil, err
+	}
+
+	var kmerRMap KmerRMap
+
+	// Go through all kmers.
+	for _, kmer := range AllKmers(k) {
+		var pdFreq float64
+		var inputFreq float64
+		pdFreq, _ = pd[kmer]
+		inputFreq, _ = input[kmer]
+		if inputFreq == 0. {
+			kmerRMap[kmer] = 1.
+		} else {
+			kmerRMap[kmer] = pdFreq / inputFreq
+		}
+	}
+	return kmerRMap, nil
 }
