@@ -38,6 +38,12 @@ func isACGTonlyKmer(s string) bool {
 	return true
 }
 
-//func FilterToACGTkmers(m map[string]int) map[string]int {
-//	filtKmerCounts := make(map[string]int)
-//}
+func FilterToACGTkmers(m map[string]int) map[string]int {
+	filtKmerCounts := make(map[string]int)
+	for kmer, count := range m {
+		if isACGTonlyKmer(kmer) {
+			filtKmerCounts[kmer] = count
+		}
+	}
+	return filtKmerCounts
+}

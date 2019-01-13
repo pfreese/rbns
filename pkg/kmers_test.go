@@ -71,3 +71,28 @@ func TestIsACGTOnlyKmer(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterToACGTkmers(t *testing.T) {
+	tables := []struct {
+		inMap map[string]int
+		filtMap map[string]int // expected result
+	}{
+		{map[string]int{"AC": 1, "BC": 1, "CD": 1, "DE": 1},
+			map[string]int{"AC": 1},
+		},
+		{map[string]int{"GCCG": 10, "AAAA": 3, "CG": 0, "DE": 10},
+			map[string]int{"GCCG": 10, "AAAA": 3, "CG": 0},
+		},
+		{map[string]int{},
+			map[string]int{},
+		},
+	}
+
+	for _, table := range tables {
+		actual := FilterToACGTkmers(table.inMap)
+		if !reflect.DeepEqual(actual, table.filtMap) {
+			t.Errorf("Filtering of %v was incorrect, got: %v, want: %v.",
+				table.inMap, actual, table.filtMap)
+		}
+	}
+}
