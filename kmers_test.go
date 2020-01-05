@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Test for panics based on: https://stackoverflow.com/questions/31595791/how-to-test-panics
+// Test for panic based on: https://stackoverflow.com/questions/31595791/how-to-test-panics
 func TestAllKmers(t *testing.T) {
 	tables := []struct {
 		name string // name of the test
